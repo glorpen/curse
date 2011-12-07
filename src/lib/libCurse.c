@@ -13,6 +13,7 @@
 #include <string.h>
 
 static const char addon_page[] = "http://www.curse.com/addons/wow/%s";
+static const char addon_url[] = "http://www.curse.com/addons/wow/%s/%d";
 static const char db_path[] = "curse.db";
 
 int32_t Curse_getRemoteVersion(const char* symbol){
@@ -50,14 +51,6 @@ int32_t Curse_getRemoteVersion(const char* symbol){
 	return ret;
 }
 
-void Curse_init(){
-	DBRead(db_path);
-}
-
-void Curse_free(){
-	DBFree();
-}
-
 int32_t Curse_getLocalVersion(char* symbol){
 	DBObject* o;
 
@@ -68,3 +61,36 @@ int32_t Curse_getLocalVersion(char* symbol){
 		return 0;
 	}
 }
+
+char* Curse_versionDownloadUrl(const char* symbol, int32_t version){
+	char url[strlen(addon_url)+strlen(symbol)+20-2], *pos, *ret=NULL;
+	sprintf(url, addon_url, symbol, version);
+
+	HttpStream hs;
+	HttpInit(&hs);
+	printf("%s\n", url);
+	HttpFillWithUrl(&hs, url);
+	if(HttpRecvPage(&hs, NULL)==HTTP_OK){
+		pos = strstr(hs.content, "http://addons.curse.cursecdn.com/files");
+		if(pos!=NULL){
+			ret=pos;
+			while(ret[0]!='"') ret++;
+			ret[0]=0;
+			ret=strdup(pos);
+		}
+	}
+
+	HttpFree(&hs);
+
+	return ret;
+}
+
+void Curse_init(){
+	DBRead(db_path);
+}
+
+void Curse_free(){
+	DBFree();
+}
+
+

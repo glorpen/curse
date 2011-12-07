@@ -21,7 +21,10 @@ int main(int argc, char** argv){
 
 	Curse_init();
 
-	printf("%d : %d\n", Curse_getRemoteVersion("clique"), Curse_getLocalVersion("clique"));
+	int32_t ver = Curse_getRemoteVersion("clique");
+	printf("%d : %d\n", ver, Curse_getLocalVersion("clique"));
+
+	printf("download url: %s\n", Curse_versionDownloadUrl("clique" ,ver));
 
 	Curse_free();
 
