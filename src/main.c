@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "lib/libDB.h"
+#include "lib/libCurse.h"
 
 int main(int argc, char** argv){
 
@@ -21,10 +22,11 @@ int main(int argc, char** argv){
 
 	Curse_init();
 
-	int32_t ver = Curse_getRemoteVersion("clique");
-	printf("%d : %d\n", ver, Curse_getLocalVersion("clique"));
+	//int32_t ver = Curse_getRemoteVersion("clique");
+	//printf("%d : %d\n", ver, Curse_getLocalVersion("clique"));
 
-	printf("download url: %s\n", Curse_versionDownloadUrl("clique" ,ver));
+	//Curse_downloadFile("clique", ver, "/tmp/curse.zip.tmp");
+	Curse_update("bagnon");
 
 	Curse_free();
 
