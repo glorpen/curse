@@ -36,6 +36,8 @@ DBObject* DBRead(const char* path){
 		DBFree();
 	}
 
+	//TODO dont create empty object if no db
+
 	while(!feof(f)){
 		current = DBObject_new();
 
@@ -54,8 +56,14 @@ DBObject* DBRead(const char* path){
 	return first;
 }
 
-void DBWrite(const char* path){
+bool DBWrite(const char* path){
 	FILE* f=fopen(path, "wb");
+
+	if(f==NULL){
+		printf("could not save database %s\n", path);
+		return false;
+	}
+
 	DBObject *current=database;
 	while(current!=NULL){
 		fwrite(current->name,32,1,f);
@@ -64,6 +72,8 @@ void DBWrite(const char* path){
 		current = current->next;
 	}
 	fclose(f);
+
+	return true;
 }
 
 DBObject* DBFind(const char* name){
@@ -84,4 +94,26 @@ DBObject* DBPrepend(const char* name, uint32_t version){
 	n->next = database;
 	database = n;
 	return database;
+}
+
+DBObject* DBGetFirst(){
+	return database;
+}
+
+void DBRemove(char* symbol){
+	DBObject* o=database, *prev=NULL;
+	while(o!=NULL){
+		if(strcmp(o->name, symbol)==0){
+			if(prev==NULL){ //first
+				database = o->next;
+			} else { //middle, last
+				prev->next = o->next;
+			}
+			free(o);
+			break;
+		}
+
+		prev = o;
+		o = o->next;
+	}
 }

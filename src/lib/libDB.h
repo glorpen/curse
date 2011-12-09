@@ -11,8 +11,10 @@ typedef struct _DBObject {
 
 extern void DBFree();
 extern DBObject* DBRead(const char* path);
-extern void DBWrite(const char* path);
+extern bool DBWrite(const char* path);
 extern DBObject* DBFind(const char* name);
 extern DBObject* DBPrepend(const char* name, uint32_t version);
+extern DBObject* DBGetFirst();
+extern void DBRemove(char* symbol);
 
 #endif

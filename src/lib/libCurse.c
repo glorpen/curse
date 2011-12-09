@@ -27,7 +27,9 @@
 
 #define ADDON_PAGE "http://www.curse.com/addons/wow/%s"
 #define ADDON_URL "http://www.curse.com/addons/wow/%s/%d"
-#define DB_PATH "curse.db"
+
+static char* addons_dir = ".";
+static char* db_path = "curse.db";
 
 int32_t Curse_getRemoteVersion(const char* symbol){
 	char url[strlen(symbol)+strlen(ADDON_PAGE)-1];
@@ -73,6 +75,16 @@ int32_t Curse_getLocalVersion(char* symbol){
 		return 0;
 	}
 }
+void Curse_setLocalVersion(char* symbol, int32_t version){
+	DBObject* o;
+
+	o = DBFind(symbol);
+	if(o!=NULL){
+		o->version = version;
+	} else {
+		DBPrepend(symbol, version);
+	}
+}
 
 static char* getVersionDownloadUrl(const char* symbol, int32_t version){
 	char url[strlen(ADDON_URL)+strlen(symbol)+20-2], *pos, *ret=NULL;
@@ -97,7 +109,7 @@ static char* getVersionDownloadUrl(const char* symbol, int32_t version){
 	return ret;
 }
 
-static int downloadVersionFile(char* symbol, int32_t version){
+int Curse_downloadVersionFile(char* symbol, int32_t version){
 	char template[] = "/tmp/curseXXXXXX";
 	char* url=getVersionDownloadUrl(symbol, version);
 	FILE* output;
@@ -119,8 +131,6 @@ static int downloadVersionFile(char* symbol, int32_t version){
 	HttpFree(&hs);
 	return f;
 }
-
-static char* addons_dir = "test";
 
 static int removeThing(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf){
 	if(typeflag == FTW_DP){
@@ -192,36 +202,50 @@ static void unpackAddon(struct zip* archive){
 
 }
 
-void Curse_install(int f){
+bool Curse_install(int f){
 	int error;
 	struct zip* archive = zip_fdopen(f, 0, &error);
 
 	if(archive==NULL){
 		DEBUG("zip error %d\n", error);
 		close(f);
-		return;
+		return false;
 	} else {
 		DEBUG("archive opened\n");
 		deleteAddonDirs(archive);
 		unpackAddon(archive);
 	}
 	zip_close(archive);
+
+	return true;
 }
 
 void Curse_update(char* symbol){
-	int32_t ver = Curse_getRemoteVersion(symbol);
-	//printf("%d\n", ver);
-	//printf("%d : %d\n", ver, Curse_getLocalVersion("clique"));
-	//int32_t ver = 558953;
+	int fd;
+	int32_t remote_ver = Curse_getRemoteVersion(symbol);
+	int32_t local_ver = Curse_getLocalVersion(symbol);
 
-	int f=downloadVersionFile(symbol, ver);
-	Curse_install(f);
+	if(remote_ver > local_ver){
+		fd=Curse_downloadVersionFile(symbol, remote_ver);
+		if(fd!=-1 && Curse_install(fd)){
+			Curse_setLocalVersion(symbol, remote_ver);
+		}
+	}
 }
 
-void Curse_init(){
-	DBRead(DB_PATH);
+void Curse_init(char* working_dir){
+	char path[512];
+
+	sprintf(path, "%s/%s", working_dir, "Interface/AddOns");
+	addons_dir = strdup(path);
+
+	sprintf(path, "%s/%s", working_dir, "curse.db");
+	db_path = strdup(path);
+
+	DBRead(db_path);
 }
 
 void Curse_free(){
+	DBWrite(db_path);
 	DBFree();
 }
