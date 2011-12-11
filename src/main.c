@@ -27,7 +27,7 @@ void listItems(){
 
 int main(int argc, char** argv){
 
-	ConsoleSetVerbosity(LOG_INFO);
+	ConsoleSetVerbosity(LOG_WARNING);
 	Curse_init(".");
 
 	if(argc>1){

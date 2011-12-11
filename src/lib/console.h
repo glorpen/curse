@@ -17,7 +17,8 @@ typedef enum {
 } LOG;
 
 
-void ConsoleLog(LOG type, const char* fmt, ...);
+extern void ConsoleLog(LOG type, const char* fmt, ...);
+extern void ConsoleSetVerbosity(LOG v);
 
 #define DEBUG(...) ConsoleLog(LOG_DEBUG, __VA_ARGS__);
 #define INFO(...) ConsoleLog(LOG_INFO, __VA_ARGS__);

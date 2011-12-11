@@ -18,14 +18,18 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <ftw.h>
+#ifndef WIN32
+	#include <ftw.h>
+#else
+	#include "lib/compat/gnu.h"
+#endif
 
 #include "common.h"
 #include "lib/console.h"
 #include "libDB.h"
 #include "libCurse.h"
 #include "libHttp.h"
-#include "lib/zip/zip.h"
+#include <zip.h>
 
 #define ADDON_PAGE "http://www.curse.com/addons/wow/%s"
 #define ADDON_URL "http://www.curse.com/addons/wow/%s/%d"
@@ -36,15 +40,17 @@ static char* db_path = "curse.db";
 int32_t Curse_getRemoteVersion(const char* symbol){
 	char url[strlen(symbol)+strlen(ADDON_PAGE)-1];
 	char *pos, *pos_saved;
-	int32_t ret = -1;
+	int32_t ret = -1, status;
 
 	sprintf(url, ADDON_PAGE, symbol);
 
 	HttpStream hs;
 	HttpInit(&hs);
 
+	DEBUG("downloading page %s", url);
 	HttpFillWithUrl(&hs, url);
-	if(HttpRecvPage(&hs, NULL)==HTTP_OK){
+	status=HttpRecvPage(&hs, NULL);
+	if(status==HTTP_OK){
 		sprintf(url, "/addons/wow/%s/", symbol);
 
 		pos = hs.content;
@@ -60,6 +66,8 @@ int32_t Curse_getRemoteVersion(const char* symbol){
 				ret=atoi(pos_saved);
 			}
 		};
+	} else {
+		ERROR("could not download %s, error %d", url, status);
 	}
 
 	HttpFree(&hs);
@@ -95,7 +103,7 @@ static char* getVersionDownloadUrl(const char* symbol, int32_t version){
 
 	HttpStream hs;
 	HttpInit(&hs);
-	DEBUG("version url for %s:%d - %s\n", symbol, version, url);
+	DEBUG("version url for %s:%d - %s", symbol, version, url);
 	HttpFillWithUrl(&hs, url);
 	if(HttpRecvPage(&hs, NULL)==HTTP_OK){
 		pos = strstr(hs.content, "http://addons.curse.cursecdn.com/files");
@@ -116,27 +124,33 @@ int Curse_downloadVersionFile(char* symbol, int32_t version){
 	char template[] = "/tmp/curseXXXXXX";
 	char* url=getVersionDownloadUrl(symbol, version);
 	FILE* output;
-	int f=-1,ret;
+	int temp_fd=-1,ret;
 	HttpStream hs;
 
 	LOG("downloading... ");
 	DEBUG("downloading %s", url);
 	fflush(stdout);
 
+	temp_fd=mkstemp(template);
+	if(temp_fd==-1) {
+		ERROR("could not create temp file");
+		return -1;
+	}
+
 	HttpInit(&hs);
 	HttpFillWithUrl(&hs, url);
 	if((ret=HttpRecvPage(&hs, NULL))==HTTP_OK){
-		f=mkstemp(template);
-		output = fdopen(dup(f), "w");
-		DEBUG("writing %d", hs.content_len);
+		output = fdopen(dup(temp_fd), "w");
+		DEBUG("downloaded %ud bytes", hs.content_len);
 		fwrite(hs.content, 1, hs.content_len, output);
 		fclose(output);
 	} else {
 		ERROR("error downloading %s, error %d", url, ret);
+		close(temp_fd);
 	}
 
 	HttpFree(&hs);
-	return f;
+	return temp_fd;
 }
 
 static int removeThing(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf){
@@ -186,14 +200,18 @@ static void unpackAddon(struct zip* archive){
 		if(zip_path[strlen(zip_path)-1]=='/') continue;
 
 		file = zip_fopen_index(archive, i, 0);
-		DEBUG("reading %s\n", zip_path);
+		//DEBUG("reading %s", zip_path);
 
 		sprintf(destination, "%s/%s", addons_dir, zip_path);
 
 		p=strrchr(destination, '/');
 		p[0]=0;
 
+#ifdef WIN32
+		ret = mkdir(destination);
+#else
 		ret = mkdir(destination, S_IRWXU | S_IXGRP | S_IRWXO);
+#endif
 		if(ret==-1 && errno != EEXIST){
 			ERROR("could not create directory %s, error %d", destination, errno);
 		} else {
@@ -243,7 +261,9 @@ void Curse_update(char* symbol){
 	remote_ver = Curse_getRemoteVersion(symbol);
 	local_ver = Curse_getLocalVersion(symbol);
 
-	if(remote_ver > local_ver){
+	if(remote_ver < 0){
+		LOG("addon not found");
+	} else if(remote_ver > local_ver){
 		LOG("updating addon...");
 		INFO("found remote version %d", remote_ver);
 		fd=Curse_downloadVersionFile(symbol, remote_ver);
@@ -277,9 +297,11 @@ void Curse_init(char* working_dir){
 	db_path = strdup(path);
 
 	DBRead(db_path);
+	CSocketInitialize();
 }
 
 void Curse_free(){
 	DBWrite(db_path);
 	DBFree();
+	CSocketDestruct();
 }
