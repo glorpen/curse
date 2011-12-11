@@ -16,6 +16,4 @@
 		#define LLU "%lu"
 	#endif
 
-#define DEBUG(...) printf(__VA_ARGS__)
-
 #endif

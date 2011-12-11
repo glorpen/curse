@@ -27,26 +27,30 @@ void DBFree(){
 }
 
 DBObject* DBRead(const char* path){
-	FILE* f=fopen(path, "a+b");
+	FILE* f;
 	DBObject *current, *last=NULL, *first=NULL;
+	uint32_t items,i;
 
-	if(f==NULL) return NULL;
-	fseek(f, 0, SEEK_SET);
-	if(database!=NULL){
-		DBFree();
+	if((f=fopen(path, "r+b"))==NULL){
+		if((f=fopen(path, "w+b"))==NULL)
+			return NULL;
 	}
 
-	//TODO dont create empty object if no db
+	if(database!=NULL) DBFree();
 
-	while(!feof(f)){
+	fseek(f, 0, SEEK_END);
+	items = ftell(f)/(sizeof(uint32_t) + 32);
+	fseek(f, 0, SEEK_SET);
+
+	for(i=0;i<items;i++){
 		current = DBObject_new();
-
-		if(first==NULL) first = current;
 
 		fread(current->name,32,1,f);
 		fread(&(current->version),sizeof(uint32_t),1,f);
 
-		current->next = last;
+		if(first==NULL) first = current;
+		if(last!=NULL) last->next = current;
+
 		last = current;
 	}
 	fclose(f);

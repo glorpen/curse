@@ -6,6 +6,7 @@
  */
 
 #define _XOPEN_SOURCE 500   /* See feature_test_macros(7) */
+#define _GNU_SOURCE
 
 #include <string.h>
 #include <stdlib.h>
@@ -20,6 +21,7 @@
 #include <ftw.h>
 
 #include "common.h"
+#include "lib/console.h"
 #include "libDB.h"
 #include "libCurse.h"
 #include "libHttp.h"
@@ -75,6 +77,7 @@ int32_t Curse_getLocalVersion(char* symbol){
 		return 0;
 	}
 }
+
 void Curse_setLocalVersion(char* symbol, int32_t version){
 	DBObject* o;
 
@@ -92,7 +95,7 @@ static char* getVersionDownloadUrl(const char* symbol, int32_t version){
 
 	HttpStream hs;
 	HttpInit(&hs);
-	printf("%s\n", url);
+	DEBUG("version url for %s:%d - %s\n", symbol, version, url);
 	HttpFillWithUrl(&hs, url);
 	if(HttpRecvPage(&hs, NULL)==HTTP_OK){
 		pos = strstr(hs.content, "http://addons.curse.cursecdn.com/files");
@@ -113,19 +116,23 @@ int Curse_downloadVersionFile(char* symbol, int32_t version){
 	char template[] = "/tmp/curseXXXXXX";
 	char* url=getVersionDownloadUrl(symbol, version);
 	FILE* output;
-	int f=-1;
+	int f=-1,ret;
 	HttpStream hs;
 
+	LOG("downloading... ");
 	DEBUG("downloading %s", url);
+	fflush(stdout);
 
 	HttpInit(&hs);
 	HttpFillWithUrl(&hs, url);
-	if(HttpRecvPage(&hs, NULL)==HTTP_OK){
+	if((ret=HttpRecvPage(&hs, NULL))==HTTP_OK){
 		f=mkstemp(template);
 		output = fdopen(dup(f), "w");
-		DEBUG("writing %d\n", hs.content_len);
+		DEBUG("writing %d", hs.content_len);
 		fwrite(hs.content, 1, hs.content_len, output);
 		fclose(output);
+	} else {
+		ERROR("error downloading %s, error %d", url, ret);
 	}
 
 	HttpFree(&hs);
@@ -145,15 +152,17 @@ static void deleteAddonDirs(struct zip* archive){
 	char *path, *last_path=NULL, full_path[512];
 	int i;
 
+	LOG("deleting old files... ");
+
 	for(i=0;i<zip_get_num_entries(archive, 0);i++){
 		path = (char*)zip_get_name(archive, i, 0);
 		path = strndup(path, strstr(path, "/")-path);
 
 		if(last_path == NULL || strcmp(last_path, path)!=0){
 			sprintf(full_path, "%s/%s", addons_dir, path);
-			DEBUG("removing dir %s\n", full_path);
+			DEBUG("removing dir %s", full_path);
 			if(nftw(full_path, removeThing, 4, 0)!=0){
-				printf("could not remove directory %s, error %d\n", full_path, errno);
+				WARNING("could not remove directory %s, error %d", full_path, errno);
 			}
 
 		}
@@ -170,10 +179,14 @@ static void unpackAddon(struct zip* archive){
 	struct zip_file * file;
 	char buff[1024], destination[512], *p;
 
+	LOG("unpacking... ");
+
 	for(i=0;i<zip_get_num_entries(archive, 0);i++){
 		zip_path = zip_get_name(archive, i, 0);
+		if(zip_path[strlen(zip_path)-1]=='/') continue;
+
 		file = zip_fopen_index(archive, i, 0);
-		printf("reading %s\n", zip_path);
+		DEBUG("reading %s\n", zip_path);
 
 		sprintf(destination, "%s/%s", addons_dir, zip_path);
 
@@ -182,13 +195,13 @@ static void unpackAddon(struct zip* archive){
 
 		ret = mkdir(destination, S_IRWXU | S_IXGRP | S_IRWXO);
 		if(ret==-1 && errno != EEXIST){
-			printf("could not create directory %s, error %d\n", destination, errno);
+			ERROR("could not create directory %s, error %d", destination, errno);
 		} else {
 			p[0]='/';
 
 			FILE* out=fopen(destination, "w");
 			if(out==NULL){
-				printf("could not write to %s\n", destination);
+				ERROR("could not write to %s", destination);
 			} else {
 				while((bytes_read = zip_fread(file, buff, 1024))>0){
 					fwrite(buff, 1, bytes_read, out);
@@ -207,11 +220,11 @@ bool Curse_install(int f){
 	struct zip* archive = zip_fdopen(f, 0, &error);
 
 	if(archive==NULL){
-		DEBUG("zip error %d\n", error);
+		ERROR("zip error %d", error);
 		close(f);
 		return false;
 	} else {
-		DEBUG("archive opened\n");
+		DEBUG("archive opened");
 		deleteAddonDirs(archive);
 		unpackAddon(archive);
 	}
@@ -222,14 +235,35 @@ bool Curse_install(int f){
 
 void Curse_update(char* symbol){
 	int fd;
-	int32_t remote_ver = Curse_getRemoteVersion(symbol);
-	int32_t local_ver = Curse_getLocalVersion(symbol);
+	int32_t remote_ver, local_ver;
+
+	LOG("checking %s...  ", symbol);
+	fflush(stdout);
+
+	remote_ver = Curse_getRemoteVersion(symbol);
+	local_ver = Curse_getLocalVersion(symbol);
 
 	if(remote_ver > local_ver){
+		LOG("updating addon...");
+		INFO("found remote version %d", remote_ver);
 		fd=Curse_downloadVersionFile(symbol, remote_ver);
+		fflush(stdout);
 		if(fd!=-1 && Curse_install(fd)){
 			Curse_setLocalVersion(symbol, remote_ver);
+			LOG("OK");
+		} else {
+			LOG("ERROR");
 		}
+	} else {
+		LOG("OK");
+	}
+}
+
+void Curse_updateAll(){
+	DBObject* db=DBGetFirst();
+	while(db != NULL){
+		Curse_update(db->name);
+		db = db->next;
 	}
 }
 

@@ -265,12 +265,10 @@ static uint8_t HttpRecv(HttpStream* hs, char* postData){
 		CSocketClose(hs->socket);
 		return HTTP_HEADERS_ERROR;
 	};
-//printf("2aaa\n");
 	if(!getHttpBody(hs)){
 		CSocketClose(hs->socket);
 		return HTTP_BODY_ERROR;
 	};
-//printf("3aaa\n");
 	CSocketClose(hs->socket);
 	return HTTP_OK;
 }
@@ -280,12 +278,10 @@ static uint8_t HttpRecvFollow(HttpStream* hs, char* postData){
 	char* url;
 	while(1){
 		ret=HttpRecv(hs,postData);
-//printf("4aaa\n");
 		if(ret!=HTTP_OK) return ret;
 		switch(hs->status){
 			case 301:
 			case 302:
-				//printf("3aaa\n");
 				url=strdup(GetHttpHeaderValue(hs,"location"));
 				HttpFree(hs);
 				HttpInit(hs);
@@ -371,6 +367,7 @@ char* urlencode(char*str){
 				break;
 			default:
 				out[i]=str[i];
+				break;
 		}
 		l++;
 	}
