@@ -1,11 +1,25 @@
 /*
- * libCurse.c
+ *  Curse, World of Warcraft addons updater.
+ *  Copyright (C) 2011  Arkadiusz Dzięgiel
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  *  Created on: 05-12-2011
  *      Author: arkus
  */
 
-#define _XOPEN_SOURCE 500   /* See feature_test_macros(7) */
+#define _XOPEN_SOURCE 500
 #define _GNU_SOURCE
 
 #include <string.h>
@@ -200,7 +214,7 @@ static void unpackAddon(struct zip* archive){
 		if(zip_path[strlen(zip_path)-1]=='/') continue;
 
 		file = zip_fopen_index(archive, i, 0);
-		//DEBUG("reading %s", zip_path);
+		DEBUG("reading %s", zip_path);
 
 		sprintf(destination, "%s/%s", addons_dir, zip_path);
 
@@ -217,10 +231,11 @@ static void unpackAddon(struct zip* archive){
 		} else {
 			p[0]='/';
 
-			FILE* out=fopen(destination, "w");
+			FILE* out=fopen(destination, "wb");
 			if(out==NULL){
 				ERROR("could not write to %s", destination);
 			} else {
+				DEBUG("writing to %s", destination);
 				while((bytes_read = zip_fread(file, buff, 1024))>0){
 					fwrite(buff, 1, bytes_read, out);
 				}

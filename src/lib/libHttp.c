@@ -1,3 +1,22 @@
+/*
+ *  Curse, World of Warcraft addons updater.
+ *  Copyright (C) 2011  Arkadiusz Dzięgiel
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
 #include "common.h"
 #include "libHttp.h"
 #include "compat/CompatSocket.h"
@@ -48,9 +67,7 @@ static bool parseHeaders(HttpStream* hs,char* headers){
 		lines++;
 		pos+=2;
 	}
-	/*printf("found %d lines\n",lines);*/
 	sscanf(headers,"HTTP/%*f %hu",&(hs->status));
-	/*printf("status: %d\n",hs->status);*/
 
 	hs->headers=malloc(sizeof(char**)*(lines+1));
 
@@ -63,16 +80,12 @@ static bool parseHeaders(HttpStream* hs,char* headers){
 		tmp[0]=0;
 		hs->headers[i][0]=strdup(pos);
 		toLower(hs->headers[i][0]);
-		/*printf("key: %s\n",hs->headers[i][0]);*/
 		tmp[0]=':';
 		tmp+=2;
 		tmp2=strstr(tmp,"\r\n");
 		tmp2[0]=0;
-		/*printf("val: %s\n",tmp);*/
 		hs->headers[i][1]=strdup(tmp);
 		tmp2[0]='\r';
-
-/*printf("key: (%d)%s\n",i,hs->headers[i][0]);*/
 
 		lines--;i++;
 		if(lines==0) break;
@@ -136,7 +149,6 @@ static bool getHttpChunked(HttpStream*hs){
 	char buf1[10];
 	uint8_t c;
 	uint32_t i,j,chunk_len;
-	//ret_len=0;
 
 	i=0;j=0;
 	while(CSocketRecv(hs->socket,&c,1)>0){
@@ -145,17 +157,13 @@ static bool getHttpChunked(HttpStream*hs){
 			if(i==2){
 				buf1[j-1]=0;
 				chunk_len=0;
-				//printf("buf1: %s\n",buf1);
 				sscanf(buf1,"%x",&chunk_len);
-				//printf("chunk len: %d\n",chunk_len);
 				if(chunk_len==0) return true;
 				readHttpData(hs,chunk_len);
-				//ret_len+=chunk_len;
 				i=0;j=0;
 			}
 		} else i=0;
 		buf1[j++]=c;
-		//printf("%c\n",c);
 	}
 	return false;
 }
@@ -181,7 +189,6 @@ static bool zlibDecode(z_stream* stream,HttpStream*hs){
 	hs->content=buff;
 	hs->content_len=stream->total_out;
 	inflateEnd(stream);
-	//printf("%s\n",buff);
 	return true;
 }
 
@@ -190,8 +197,6 @@ static bool httpGzipDecode(HttpStream*hs){ //+10
 	stream.zalloc=Z_NULL;
 	stream.zfree=Z_NULL;
 	stream.opaque=Z_NULL;
-
-//	printf("gzip\n");
 
 	stream.avail_in=hs->content_len-10;
 	stream.next_in=(Bytef*)(hs->content+10);
@@ -205,8 +210,6 @@ static bool httpDeflateDecode(HttpStream*hs){
 	stream.zalloc=Z_NULL;
 	stream.zfree=Z_NULL;
 	stream.opaque=Z_NULL;
-
-//	printf("inflate\n");
 
 	stream.avail_in=hs->content_len;
 	stream.next_in=(Bytef*)hs->content;
@@ -222,23 +225,12 @@ static bool getHttpBody(HttpStream* hs){
 	uint32_t len;
 
 	if(len_s==NULL){
-//		printf("chunked\n");
 		if(!getHttpChunked(hs))
 			return false;
 	} else {
-//		printf("not chunked\n");
 		sscanf(len_s,"%u",&len);
 		if(!readHttpData(hs,len)) return false;
-/*		hs->content=malloc(len+1);
-		todo=0;
-		while(todo!=len){
-			ret=CRecv(hs->socket,(hs->content)+todo,len-todo);
-			if(ret<1) return false;
-			todo+=ret;
-		}
-		hs->content[len]=0;*/
 	}
-//printf("encoding\n");
 	if(encoding!=NULL){
 		if(strcmp(encoding,"gzip")==0){
 			httpGzipDecode(hs);
@@ -247,7 +239,6 @@ static bool getHttpBody(HttpStream* hs){
 			httpDeflateDecode(hs);
 		}
 	}
-	//printf("%s\n",hs->content);
 
 	return true;
 }
@@ -260,7 +251,6 @@ static uint8_t HttpRecv(HttpStream* hs, char* postData){
 		CSocketClose(hs->socket);
 		return HTTP_REQUEST_ERROR;
 	};
-//printf("1aaa\n");
 	if(!getHttpHeaders(hs)){
 		CSocketClose(hs->socket);
 		return HTTP_HEADERS_ERROR;
