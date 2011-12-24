@@ -200,8 +200,44 @@ static void deleteAddonDirs(struct zip* archive){
 	if(last_path!=NULL) free(last_path);
 }
 
+#ifdef WIN32
+#define cross_mkdir(x) mkdir(x)
+#else
+#define cross_mkdir(x) mkdir(x, S_IRWXU | S_IXGRP | S_IRWXO)
+#endif
+
+static bool recursive_mkdir(const char* root, const char* dir){
+	int ret;
+	char *p,*path=strdup(dir);
+	char destination[512];
+
+	p=path;
+
+	while((p=strchr(p, '/'))!=NULL){
+		p[0]=0;
+		sprintf(destination, "%s/%s", root, path);
+		ret=cross_mkdir(destination);
+		p[0]='/';
+		p++;
+
+		if(ret == 0){
+			DEBUG("created directory %s", destination);
+		}
+	}
+
+
+	if(ret==-1 && errno != EEXIST){
+		//error
+		ERROR("could not create directory %s, error %d", destination, errno);
+		free(path);
+		return false;
+	}
+
+	return true;
+}
+
 static void unpackAddon(struct zip* archive){
-	int i,ret;
+	int i;
 	zip_int64_t bytes_read;
 	const char * zip_path;
 	struct zip_file * file;
@@ -221,14 +257,7 @@ static void unpackAddon(struct zip* archive){
 		p=strrchr(destination, '/');
 		p[0]=0;
 
-#ifdef WIN32
-		ret = mkdir(destination);
-#else
-		ret = mkdir(destination, S_IRWXU | S_IXGRP | S_IRWXO);
-#endif
-		if(ret==-1 && errno != EEXIST){
-			ERROR("could not create directory %s, error %d", destination, errno);
-		} else {
+		if(recursive_mkdir(addons_dir, zip_path)){
 			p[0]='/';
 
 			FILE* out=fopen(destination, "wb");
@@ -266,7 +295,7 @@ bool Curse_install(int f){
 	return true;
 }
 
-void Curse_update(char* symbol){
+void Curse_update(char* symbol, bool force){
 	int fd;
 	int32_t remote_ver, local_ver;
 
@@ -278,11 +307,9 @@ void Curse_update(char* symbol){
 
 	if(remote_ver < 0){
 		LOG("addon not found");
-	} else if(remote_ver > local_ver){
-		LOG("updating addon...");
-		INFO("found remote version %d", remote_ver);
+	} else if(force || remote_ver > local_ver){
+		LOG("updating addon to version %d... ", remote_ver);
 		fd=Curse_downloadVersionFile(symbol, remote_ver);
-		fflush(stdout);
 		if(fd!=-1 && Curse_install(fd)){
 			Curse_setLocalVersion(symbol, remote_ver);
 			LOG("OK");
@@ -294,10 +321,10 @@ void Curse_update(char* symbol){
 	}
 }
 
-void Curse_updateAll(){
+void Curse_updateAll(bool force){
 	DBObject* db=DBGetFirst();
 	while(db != NULL){
-		Curse_update(db->name);
+		Curse_update(db->name, force);
 		db = db->next;
 	}
 }

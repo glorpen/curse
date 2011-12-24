@@ -27,8 +27,8 @@ extern int32_t Curse_getLocalVersion(char* symbol);
 extern void Curse_setLocalVersion(char* symbol, int32_t version);
 extern int Curse_downloadVersionFile(char* symbol, int32_t version);
 extern void Curse_setAddonDir(char* path);
-extern void Curse_updateAll();
-extern void Curse_update(char* symbol);
+extern void Curse_updateAll(bool force);
+extern void Curse_update(char* symbol, bool force);
 
 extern bool Curse_install(int f);
 

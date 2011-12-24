@@ -55,21 +55,23 @@ static void help(){
 	printf("\
 Usage:\n\
 \t-h, --help                   this text\n\
-\t-v, --verbose                make output more verbose (can be used multiple times)\n\
-\t-s, --set <name> <version>   sets addon version in database\n\
-\t-r, --remove <name>          removes addon from database\n\
-\t-c, --clear                  clears (zeroes) versions of all addons\n\
-\t-u[name], --update=[name]    checks for updates for all addons or one given by name\n\
-\t-d, --dir <dir>              WoW instalation folder, default: current directory\n\
+\t-v, --verbose                  make output more verbose (can be used multiple times)\n\
+\t-s, --set <name> <version>     sets addon version in database\n\
+\t-r, --remove <name>            removes addon from database\n\
+\t-c, --clear                    clears (zeroes) versions of all addons\n\
+\t-u[name], --update=[name]      checks for updates for all addons or one given by name\n\
+\t-u,--update=[name] -f|--force  reinstalls addon\n\
+\t-d, --dir <dir>                WoW instalation folder, default: current directory\n\
 ");
 }
 
 int main(int argc, char** argv){
 	void* fun = NULL;
 	int c;
-	uint8_t verbosity = LOG_LOG;
+	uint8_t verbosity = LOG_ERROR;
 	char* dir=".";
 	char* addon_to_update = NULL;
+	bool force_update = false;
 
 	printf("Curse - an addon uddater for World of Warcraft.\n\n");
 
@@ -81,12 +83,13 @@ int main(int argc, char** argv){
 				{ "list", no_argument, 0, 'l' },
 				{ "set", no_argument, 0, 's' },
 				{ "remove", no_argument, 0, 'r' },
+				{ "force", no_argument, 0, 'f' },
 				{ "clear", no_argument, 0, 'c' },
 				{ "update", optional_argument, 0, 'u' },
 				{ "dir", required_argument, 0, 'd' },
 				{ 0, 0, 0, 0 } };
 
-		c = getopt_long(argc, argv, "hvsrcu::ld:", long_options, &option_index);
+		c = getopt_long(argc, argv, "fhvsrcu::ld:", long_options, &option_index);
 		if (c == -1) break;
 
 		switch (c) {
@@ -101,6 +104,9 @@ int main(int argc, char** argv){
 				} else {
 					fun = Curse_updateAll;
 				}
+				break;
+			case 'f':
+				force_update = true;
 				break;
 			case 'c': fun = zero; break;
 			case 'v': verbosity++; break;
@@ -142,13 +148,13 @@ int main(int argc, char** argv){
 		}
 	} else if(fun == Curse_updateAll){
 			if(free_args == 0){
-				Curse_updateAll();
+				Curse_updateAll(force_update);
 			} else {
 				printf("Option --update does not accept additional arguments.\n");
 			}
 	} else if(fun == Curse_update){
 			if(free_args == 0){
-				Curse_update(addon_to_update);
+				Curse_update(addon_to_update, force_update);
 			} else {
 				printf("Option --update does not accept additional arguments.\n");
 			}
