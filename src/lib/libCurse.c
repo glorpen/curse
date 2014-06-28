@@ -36,6 +36,7 @@
 	#include <ftw.h>
 #else
 	#include "lib/compat/gnu.h"
+	#define ZIP_EXTERN
 #endif
 
 #include "common.h"
