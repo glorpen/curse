@@ -7,7 +7,7 @@ An lightweight Curse based addon manager for World of Warcraft. Supports linux &
 Help
 ====
 
-.. sourcecode::
+.. sourcecode:: txt
 
    $ ./curse -h
    
