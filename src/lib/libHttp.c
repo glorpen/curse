@@ -132,13 +132,15 @@ static bool getHttpHeaders(HttpStream* hs){
 }
 
 static bool readHttpData(HttpStream* hs,uint32_t len){
-	int32_t ret;
+	int32_t ret=0;
+	uint32_t read=0;
 	uint32_t start=hs->content_len;
-	hs->content=realloc(hs->content,start+len+1);
+	hs->content = realloc(hs->content,start+len+1);
 	while(hs->content_len!=len+start){
-		ret=CSocketRecv(hs->socket,(hs->content)+start+hs->content_len,len-hs->content_len);
+		ret=CSocketRecv(hs->socket,(hs->content)+start+read,len-read);
 		if(ret<1) return false;
 		hs->content_len+=ret;
+		read+=ret;
 	}
 	hs->content[start+len]=0;
 	return true;
@@ -158,9 +160,16 @@ static bool getHttpChunked(HttpStream*hs){
 				buf1[j-1]=0;
 				chunk_len=0;
 				sscanf(buf1,"%x",&chunk_len);
-				if(chunk_len==0) return true;
+
+				if(chunk_len==0){
+					CSocketRecv(hs->socket,buf1,2);
+					return true;
+				}
+
 				readHttpData(hs,chunk_len);
+				CSocketRecv(hs->socket,buf1,2);
 				i=0;j=0;
+				continue;
 			}
 		} else i=0;
 		buf1[j++]=c;
@@ -276,6 +285,7 @@ static uint8_t HttpRecvFollow(HttpStream* hs, char* postData){
 				HttpFree(hs);
 				HttpInit(hs);
 				HttpFillWithUrl(hs,url);
+				free(url);
 				break;
 			default:
 				return ret;

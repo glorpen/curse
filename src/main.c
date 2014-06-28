@@ -69,7 +69,7 @@ int main(int argc, char** argv){
 	void* fun = NULL;
 	int c;
 	uint8_t verbosity = LOG_ERROR;
-	char* dir=".";
+	char* dir=strdup(".");
 	char* addon_to_update = NULL;
 	bool force_update = false;
 
@@ -111,6 +111,7 @@ int main(int argc, char** argv){
 			case 'c': fun = zero; break;
 			case 'v': verbosity++; break;
 			case 'd':
+				free(dir);
 				dir = strdup(optarg);
 				break;
 			default:
@@ -121,6 +122,7 @@ int main(int argc, char** argv){
 
 	ConsoleSetVerbosity(verbosity);
 	Curse_init(dir);
+	free(dir);
 
 	uint8_t free_args = argc-optind;
 	if(fun == help){
@@ -155,6 +157,7 @@ int main(int argc, char** argv){
 	} else if(fun == Curse_update){
 			if(free_args == 0){
 				Curse_update(addon_to_update, force_update);
+				free(addon_to_update);
 			} else {
 				printf("Option --update does not accept additional arguments.\n");
 			}
