@@ -1,0 +1,9 @@
+
+syntax: regexp
+^curse$
+^curse\.db$
+^\.settings$
+^\.cproject$
+^\.project$
+^Release.*$
+^Debug.*$
